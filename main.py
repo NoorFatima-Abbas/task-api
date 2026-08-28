@@ -23,27 +23,27 @@ tasks = [
 ]
 next_id = 3
 
-@app.get("/")
+@app.get("/", summary="API Info")
 def read_root():
    return {"name":"Task API", "version":"1.0", "endpoints":["/tasks"]}
 
-@app.get("/tasks")
+@app.get("/tasks", summary="List all tasks")
 def get_tasks():
     return tasks
 
-@app.get("/tasks/{task_id}")
+@app.get("/tasks/{task_id}", summary="List the task by ID")
 def get_task(task_id: int):
     for task in tasks:
         if task["id"] == task_id:
             return task 
     return JSONResponse(status_code=404, content={"error": f"Task {task_id} not found"})
 
-@app.get("/health")
+@app.get("/health", summary="Check Server Health")
 def read_health():
  return {"status":"ok"}
 
 #stage 3: Endpoint- Create Post a new task
-@app.post("/tasks", status_code=201)
+@app.post("/tasks", status_code=201, summary="Create a new task")
 def create_task(task:TaskCreate):
    if not task.title or not task.title.strip():
       return JSONResponse(status_code=400, 
@@ -58,7 +58,7 @@ def create_task(task:TaskCreate):
 def validation_error_handler(request:Request, exc:RequestValidationError):
    return JSONResponse(status_code=400,content={"error":"Title is required and cannot be empty."})
 
-@app.put("/tasks/{task_id}")
+@app.put("/tasks/{task_id}", summary="Update a task")
 def update_task(task_id: int,task_update:TaskUpdate ):
     # 1. Find the task
     found_task = None
@@ -83,7 +83,7 @@ def update_task(task_id: int,task_update:TaskUpdate ):
           found_task["done"]=task_update.done
     return found_task
 
-@app.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+@app.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete a task")
 def delete_task(task_id:int):
     #Loop to find the task
     for task in tasks:
