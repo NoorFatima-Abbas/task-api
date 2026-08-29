@@ -1,11 +1,12 @@
 # Task API
 
-A simple CRUD API for managing a to-do list, built with Python and FastAPI as part of a backend engineering assignment. Task data lives entirely in memory — it resets whenever the server restarts (see "Notes" below for why that's intentional, not a bug).
+A simple CRUD API for managing a to-do list, built with Python and FastAPI as part of a backend engineering assignment. Task data is stored in a SQLite database (`tasks.db`) and survives server restarts.
 
 ## Tech Stack
 - Python 3.13
 - FastAPI
 - Uvicorn (ASGI server)
+- SQLite
 
 ## Setup & Run
 
@@ -25,7 +26,7 @@ Start the server:
 uvicorn main:app --reload --port 8000
 ```
 
-Visit `http://localhost:8000` in your browser, or explore the interactive API docs at `http://localhost:8000/docs`.
+On first run, `tasks.db` is created automatically with 3 seeded example tasks. Visit `http://localhost:8000` in your browser, or explore the interactive API docs at `http://localhost:8000/docs`.
 
 ## Endpoints
 
@@ -48,7 +49,7 @@ server: uvicorn
 content-length: 43
 content-type: application/json
 
-{"id":1,"title":"Assignment 2","done":true}
+{"id":1,"title":"Do Exercise","done":false}
 
 
 ## Swagger UI
@@ -57,11 +58,19 @@ All 7 endpoints are documented and testable via "Try it out" at `/docs`.
 
 ![Swagger UI](screenshots/whole_page.png)
 
+## Database
+
+Task data lives in `tasks.db` (SQLite), created automatically the first time the app runs. It's git-ignored, so each fresh clone starts with its own database, seeded with 3 example tasks.
+
+SQLite was chosen because it needs no separate server or install — the entire database is one file, which is enough for a project this size and removes any setup friction for anyone cloning the repo.
+
 ## Notes
 
-When the server restarts, only the 3 hardcoded example tasks reappear — 
-any task created afterward and confirmed present in GET /tasks is completely gone once the server stops and starts again.
-This happens because tasks are stored in a plain Python list in memory, which exists only for the lifetime of the running process; 
-nothing is written to disk. This is exactly why real backends use a persistent store like SQLite or a proper database instead of an
-in-memory list — so data survives restarts, deployments, and crashes, not just successful requests.
+SQLite makes all changes — creates, updates, deletes — permanent across restarts. For example, if you delete 2 of the original 5 tasks and restart the server, you'll still see exactly the remaining 3 — nothing is lost and nothing reappears on its own.
 
+The one exception: if deletions ever bring the table down to zero rows, the app's startup logic (`init_db()`) reseeds the 3 original example tasks. This is a deliberate safety feature so a fresh or fully emptied database is never left completely blank — not a general "everything resets" behavior.
+
+## Stage 4 — Exploring SQLite by hand
+
+Query: `SELECT * FROM tasks WHERE done = 1;`
+Result: returned zero rows before any task was marked complete, confirming the query correctly filters on the `done` column.
