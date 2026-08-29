@@ -75,3 +75,24 @@ The one exception: if deletions ever bring the table down to zero rows, the app'
 
 Query: `SELECT * FROM tasks WHERE done = 1;`
 Result: returned zero rows before any task was marked complete, confirming the query correctly filters on the `done` column.
+
+## Stage 5 — Publish & Document
+Covered above: why SQLite (Database section), run command (Setup & Run), screenshot below, Stage 4 query above
+
+## Stage 6 — AI vs Me
+
+**Prompt used:** (pasted my real in-memory `main.py` + migration requirements: SQLite schema, create-if-missing, seed-once, identical endpoint behavior, 400/404 rules, parameterized queries, output isolated to `ai-version/`)
+
+**What the AI did well:**
+- Correct 400/404 error shapes and messages, matching mine exactly
+- Parameterized queries throughout, no string-glued SQL
+- Seed-only-if-empty logic worked correctly across multiple runs
+
+**What it got wrong:**
+- Returned `done` as raw `0`/`1` instead of a JSON boolean (`true`/`false`) — a silent behavior change from the original API that my version avoided by wrapping with `bool(row["done"])`.
+
+**What my prompt left it to decide:**
+- Added `AUTOINCREMENT` and `NOT NULL`/`DEFAULT` constraints I never specified — harmless, but undocumented decisions.
+
+**Improved prompt (one addition):** "Ensure the `done` field is returned as a JSON boolean (`true`/`false`), not a raw 0/1 integer, in every response."
+
