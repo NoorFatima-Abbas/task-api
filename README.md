@@ -63,6 +63,7 @@ All 7 endpoints are documented and testable via "Try it out" at `/docs`.
 Task data lives in `tasks.db` (SQLite), created automatically the first time the app runs. It's git-ignored, so each fresh clone starts with its own database, seeded with 3 example tasks.
 
 SQLite was chosen because it needs no separate server or install — the entire database is one file, which is enough for a project this size and removes any setup friction for anyone cloning the repo.
+![Tasks table in DB Browser](screenshots/db_browser.png)
 
 ## Notes
 
