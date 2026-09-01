@@ -1,11 +1,14 @@
-import sqlite3
+import os
+import psycopg
+from psycopg.rows import dict_row
+from dotenv import load_dotenv
 
+load_dotenv()
 
-DB_NAME="tasks.db"
+DATABASE_URL=os.environ["DATABASE_URL"]
 
 def get_connection():
-   conn=sqlite3.connect(DB_NAME)
-   conn.row_factory=sqlite3.Row
+   conn=psycopg.connect(DATABASE_URL, row_factory=dict_row)
    return conn
 
 def init_db():
@@ -14,31 +17,32 @@ def init_db():
 # create the table if it does not exist
     cursor.execute("""
 CREATE TABLE IF NOT EXISTS tasks(
-id INTEGER PRIMARY KEY,
+id SERIAL PRIMARY KEY,
 title TEXT,
-done INTEGER
+done BOOLEAN
 )
    """ )
 # seed initial data if table is empty
     cursor.execute("SELECT COUNT(*) FROM tasks")
-    count=cursor.fetchone()[0]
+    count=cursor.fetchone()["count"]
 
     if count==0:
       cursor.execute(
-        "INSERT INTO tasks(title, done) VALUES (?, ?)",
-        ("Do Exercise", 0),
+        "INSERT INTO tasks(title, done) VALUES (%s, %s)",
+        ("Do Exercise", False),
     )
       cursor.execute(
-        "INSERT INTO tasks(title, done) VALUES (?, ?)",
-        ("Finish Backend Engineering Assignment", 0),
+        "INSERT INTO tasks(title, done) VALUES (%s, %s)",
+        ("Finish Backend Engineering Assignment", False),
     )
       cursor.execute(
-        "INSERT INTO tasks(title, done) VALUES(?,?)",
-        ("Read SQLite Documentation", 0),
+        "INSERT INTO tasks(title, done) VALUES(%s, %s)",
+        ("Read SQLite Documentation", False),
     )
 # save changes and close
     conn.commit()
     conn.close()
+
 # to get all the tasks
 def get_all_tasks():
    conn=get_connection()
@@ -47,10 +51,10 @@ def get_all_tasks():
    rows=cursor.fetchall()
    conn.close()
 
-   #to covert each r ow object to a dictionary
+   #to covert each row object to a dictionary
    return[
-      {"id":row["id"], "title":row["title"], "done":bool(row["done"])}
-      for row in rows
+      {"id":r["id"], "title":r["title"], "done":bool(r["done"])}
+      for r in rows
    ]
 
 # to get the task_by_id
@@ -59,7 +63,7 @@ def get_task_by_id(task_id:int):
    cursor=conn.cursor()
 
    cursor.execute(
-      "SELECT id, title, done FROM tasks WHERE ID=?",(task_id,)
+      "SELECT id, title, done FROM tasks WHERE ID=%s",(task_id,)
    )
    row=cursor.fetchone()
    conn.close()
@@ -73,13 +77,12 @@ def get_task_by_id(task_id:int):
 def add_task(title:str):
    conn=get_connection()
    cursor=conn.cursor()
-   #new tasks default o done=0
+   #new tasks default  done=0
    cursor.execute(
-      "INSERT INTO tasks(title, done) VALUES (?, ?)", (title, 0)
+      "INSERT INTO tasks(title, done) VALUES (%s, %s) RETURNING id", (title, False),
    )
+   new_id=cursor.fetchone()["id"]
    conn.commit()
-   #retrieve the auto-incremented primary key
-   new_id=cursor.lastrowid
    conn.close()
    return {"id":new_id, "title": title, "done":False}
 
@@ -91,23 +94,19 @@ def update_task_in_db(
     cursor = conn.cursor()
 
     # 1. Check if task exists
-    cursor.execute("SELECT id, title, done FROM tasks WHERE id = ?", (task_id,))
+    cursor.execute("SELECT id, title, done FROM tasks WHERE id = %s", (task_id,))
     row = cursor.fetchone()
 
     if row is None:
         conn.close()
         return None
 
-    # 2. Keep existing values if optional fields weren't passed
-    current_title = row["title"]
-    current_done = row["done"]
-
-    new_title = title if title is not None else current_title
-    new_done = int(done) if done is not None else current_done
+    new_title = title if title is not None else row["title"]
+    new_done = done if done is not None else row["done"]
 
     # 3. Update the database record
     cursor.execute(
-        "UPDATE tasks SET title = ?, done = ? WHERE id = ?",
+        "UPDATE tasks SET title = %s, done = %s WHERE id = %s",
         (new_title, new_done, task_id),
     )
     conn.commit()
@@ -120,9 +119,8 @@ def delete_task_from_db(task_id: int) -> bool:
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+    cursor.execute("DELETE FROM tasks WHERE id = %s", (task_id,))
     conn.commit()
-
     deleted_count = cursor.rowcount
     conn.close()
 
