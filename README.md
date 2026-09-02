@@ -1,32 +1,43 @@
 # Task API
 
-A simple CRUD API for managing a to-do list, built with Python and FastAPI as part of a backend engineering assignment. Task data is stored in a SQLite database (`tasks.db`) and survives server restarts.
+A simple CRUD API for managing a to-do list, built with Python and FastAPI as part of a backend engineering assignment. Task data is stored in a PostgreSQL database running in Docker, and the whole stack (app + database) starts with a single command.
 
 ## Tech Stack
-- Python 3.13
+- Python 3.11
 - FastAPI
 - Uvicorn (ASGI server)
-- SQLite
+- PostgreSQL 16 (containerized)
+- Docker & Docker Compose
 
 ## Setup & Run
 
-Clone the repo and set up a virtual environment:
+Clone the repo:
 
 ```bash
 git clone https://github.com/NoorFatima-Abbas/task-api.git
 cd task-api
-python -m venv venv
-venv\Scripts\activate          # Windows
-pip install fastapi uvicorn
 ```
 
-Start the server:
+Copy the example environment file and start the stack:
 
 ```bash
-uvicorn main:app --reload --port 8000
+cp .env.example .env
+docker compose up
 ```
 
-On first run, `tasks.db` is created automatically with 3 seeded example tasks. Visit `http://localhost:8000` in your browser, or explore the interactive API docs at `http://localhost:8000/docs`.
+That's it — one command brings up both the API and its database. On first run, the `tasks` table is created automatically and seeded with 3 example tasks.
+
+Visit `http://localhost:8000` in your browser, or the interactive API docs at `http://localhost:8000/docs`.
+
+### Environment variables
+
+See `.env.example` for the required variable:
+
+| Variable       | Purpose                                  |
+|----------------|-------------------------------------------|
+| `DATABASE_URL` | PostgreSQL connection string for the app  |
+
+No secrets are hardcoded — `.env` is git-ignored, and `.env.example` documents the expected keys with placeholder values.
 
 ## Endpoints
 
@@ -41,45 +52,42 @@ On first run, `tasks.db` is created automatically with 3 seeded example tasks. V
 | DELETE | `/tasks/{id}`    | Delete a task                         | 204     | 404           |
 
 ## Example: curl
-curl.exe -i http://localhost:8000/tasks/1
+curl.exe -i http://localhost:8000/tasks/99
 
-HTTP/1.1 200 OK
-date: Fri, 28 Aug 2026 05:22:08 GMT
+HTTP/1.1 404 Not Found
+date: Tue, 01 Sep 2026 16:27:01 GMT
 server: uvicorn
-content-length: 43
+content-length: 29
 content-type: application/json
 
-{"id":1,"title":"Do Exercise","done":false}
+{"error":"Task 99 not found"}
 
-
-## Swagger UI
-
-All 7 endpoints are documented and testable via "Try it out" at `/docs`.
-
-![Swagger UI](screenshots/whole_page.png)
 
 ## Database
 
-Task data lives in `tasks.db` (SQLite), created automatically the first time the app runs. It's git-ignored, so each fresh clone starts with its own database, seeded with 3 example tasks.
+Task data lives in PostgreSQL, running as its own container (`postgres:16` image), not as a file on disk. Docker Compose starts both the app and the database together, connected on an internal network — the app reaches the database by its service name (`db`), not `localhost`.
 
-SQLite was chosen because it needs no separate server or install — the entire database is one file, which is enough for a project this size and removes any setup friction for anyone cloning the repo.
-![Tasks table in DB Browser](screenshots/db_browser.png)
+Data persists in a named Docker volume (`taskdata`), so it survives `docker compose down` and `up` cycles. The `tasks` table is created automatically if missing, and seeded with 3 example tasks only when the table is empty — restarting the stack never duplicates or wipes existing data.
+
+**Screenshot of seeded data in Postgres:**
+![Postgres tasks table]("D:\INTERNSHP_TASKS\task-api\screenshots\db_screenshot.png")
 
 ## Notes
 
-SQLite makes all changes — creates, updates, deletes — permanent across restarts. For example, if you delete 2 of the original 5 tasks and restart the server, you'll still see exactly the remaining 3 — nothing is lost and nothing reappears on its own.
+Postgres makes all changes — creates, updates, deletes — permanent across restarts, the same guarantee SQLite gave in earlier assignments, but now backed by a real database server instead of a single file. The routes and their behavior are unchanged from the SQLite version; only the storage engine underneath was swapped.
 
-The one exception: if deletions ever bring the table down to zero rows, the app's startup logic (`init_db()`) reseeds the 3 original example tasks. This is a deliberate safety feature so a fresh or fully emptied database is never left completely blank — not a general "everything resets" behavior.
+---
 
-## Stage 4 — Exploring SQLite by hand
+## Stage 4 (A2) — Exploring SQLite by hand
 
 Query: `SELECT * FROM tasks WHERE done = 1;`
 Result: returned zero rows before any task was marked complete, confirming the query correctly filters on the `done` column.
 
-## Stage 5 — Publish & Document
-Covered above: why SQLite (Database section), run command (Setup & Run), screenshot below, Stage 4 query above
+## Stage 5 (A2) — Publish & Document
 
-## Stage 6 — AI vs Me
+Covered above: why SQLite (Database section, prior version), run command (Setup & Run), screenshot, Stage 4 query above.
+
+## Stage 6 (A2) — AI vs Me
 
 **Prompt used:** (pasted my real in-memory `main.py` + migration requirements: SQLite schema, create-if-missing, seed-once, identical endpoint behavior, 400/404 rules, parameterized queries, output isolated to `ai-version/`)
 
@@ -95,4 +103,3 @@ Covered above: why SQLite (Database section), run command (Setup & Run), screens
 - Added `AUTOINCREMENT` and `NOT NULL`/`DEFAULT` constraints I never specified — harmless, but undocumented decisions.
 
 **Improved prompt (one addition):** "Ensure the `done` field is returned as a JSON boolean (`true`/`false`), not a raw 0/1 integer, in every response."
-
